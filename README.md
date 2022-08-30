@@ -1,2 +1,2 @@
-# rootctl
-Chroot manager for OpenBSD
+# Rootctl
+Minimal chroot manager for OpenBSD.
