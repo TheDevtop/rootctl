@@ -2,7 +2,7 @@ package main
 
 /*
 	Prog: Manage chroot environments
-	Vers: 0.1
+	Vers: 0.2
 	Auth: Thijs Haker
 */
 
@@ -23,7 +23,7 @@ const (
 func genUname() string {
 	var buf = new(unix.Utsname)
 	unix.Uname(buf)
-	return fmt.Sprint(string((*buf).Version[:]) + string((*buf).Machine[:]))
+	return string((*buf).Version[:]) + string((*buf).Machine[:])
 }
 
 // Boot system with new root
