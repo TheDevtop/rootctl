@@ -2,52 +2,23 @@ package main
 
 /*
 	Prog: Manage chroot environments
-	Vers: 0.2
+	Vers: 0.3
 	Auth: Thijs Haker
 */
 
 import (
 	"flag"
 	"fmt"
-	"golang.org/x/sys/unix"
 	"os"
-	"os/exec"
+
+	"github.com/TheDevtop/rootctl/vkern"
+	"golang.org/x/sys/unix"
 )
 
 const (
 	default_command = "/usr/bin/login"
 	default_root    = "/"
 )
-
-// Generate uname
-func genUname() string {
-	var buf = new(unix.Utsname)
-	unix.Uname(buf)
-	return string((*buf).Version[:]) + string((*buf).Machine[:])
-}
-
-// Boot system with new root
-// Otherwise panic
-func boot(cmdStr string) {
-	var (
-		err error
-		cmd = exec.Command(cmdStr)
-	)
-
-	// Print uname
-	fmt.Println(genUname())
-
-	// Connect files, empty environment
-	cmd.Stdin = os.Stdin
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	cmd.Env = make([]string, 0)
-
-	// Start process
-	if err = cmd.Run(); err != nil {
-		panic(err)
-	}
-}
 
 // Change root and directory
 func switchRoot(path string) error {
@@ -84,6 +55,10 @@ func main() {
 		os.Exit(1)
 	}
 
-	boot(*cmdFlag)
+	// Allocate and fill kconf
+	kconf := new(vkern.KernConf)
+	kconf.CmdStr = *cmdFlag
+
+	vkern.Main(kconf)
 	os.Exit(0)
 }
