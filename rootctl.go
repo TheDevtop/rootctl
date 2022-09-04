@@ -2,7 +2,7 @@ package main
 
 /*
 	Prog: Launch chroot environments
-	Vers: 0.5
+	Vers: 1.0
 	Auth: Thijs Haker
 */
 
@@ -16,23 +16,31 @@ import (
 )
 
 type entry struct {
-	Path string
-	Cmd  string
-	Args []string
+	Path string   // Path to new root
+	Cmd  string   // Path to command
+	Args []string // Argument list
+	Env  []string // Environment list
 }
 
 const (
-	EC_ERR    = 1
-	EC_DEF    = 0
+	EC_ERR    = 1 // Exit with errors
+	EC_DEF    = 0 // Exit normal
 	CONF_FILE = "/etc/rootctl.conf"
 	ROOT_PATH = "/"
 )
 
+// Generate utsname
+func uname() string {
+	var buf = new(unix.Utsname)
+	unix.Uname(buf)
+	return string((*buf).Version[:]) + string((*buf).Machine[:])
+}
+
 // Chroot and chdir
-func switchRoot(Path string) error {
+func switchRoot(path string) error {
 	var err error
 
-	if err = unix.Chroot(Path); err != nil {
+	if err = unix.Chroot(path); err != nil {
 		return err
 	}
 	if err = unix.Chdir(ROOT_PATH); err != nil {
@@ -72,7 +80,7 @@ func main() {
 
 	// Check if specified entry is in map
 	if *rootEntry, ok = confMap[name]; !ok {
-		fmt.Fprintf(os.Stderr, "Error: Entry %s could not be resolved!", name)
+		fmt.Fprintf(os.Stderr, "Error: Entry %s couldn't be resolved!\n", name)
 		os.Exit(EC_ERR)
 	}
 
@@ -81,9 +89,19 @@ func main() {
 		os.Exit(EC_ERR)
 	}
 
-	// Create new process and clean environtment
+	// Print utsname
+	fmt.Fprintln(os.Stdout, uname())
+
+	// Create new process and change properties
 	cmd = exec.Command(rootEntry.Cmd, rootEntry.Args...)
-	cmd.Env = nil
-	cmd.Run()
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	cmd.Env = rootEntry.Env
+
+	// Launch process
+	if err = cmd.Run(); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+	}
 	os.Exit(EC_DEF)
 }
