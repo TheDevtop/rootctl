@@ -2,7 +2,7 @@ package main
 
 /*
 	Prog: Launch chroot environments
-	Vers: 0.4
+	Vers: 0.5
 	Auth: Thijs Haker
 */
 
@@ -16,9 +16,9 @@ import (
 )
 
 type entry struct {
-	path    string
-	command string
-	args    []string
+	Path string
+	Cmd  string
+	Args []string
 }
 
 const (
@@ -29,10 +29,10 @@ const (
 )
 
 // Chroot and chdir
-func switchRoot(path string) error {
+func switchRoot(Path string) error {
 	var err error
 
-	if err = unix.Chroot(path); err != nil {
+	if err = unix.Chroot(Path); err != nil {
 		return err
 	}
 	if err = unix.Chdir(ROOT_PATH); err != nil {
@@ -76,13 +76,13 @@ func main() {
 		os.Exit(EC_ERR)
 	}
 
-	if err = switchRoot(rootEntry.path); err != nil {
+	if err = switchRoot(rootEntry.Path); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(EC_ERR)
 	}
 
 	// Create new process and clean environtment
-	cmd = exec.Command(rootEntry.command, rootEntry.args...)
+	cmd = exec.Command(rootEntry.Cmd, rootEntry.Args...)
 	cmd.Env = nil
 	cmd.Run()
 	os.Exit(EC_DEF)
