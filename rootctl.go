@@ -1,64 +1,89 @@
 package main
 
 /*
-	Prog: Manage chroot environments
-	Vers: 0.3
+	Prog: Launch chroot environments
+	Vers: 0.4
 	Auth: Thijs Haker
 */
 
 import (
-	"flag"
+	"encoding/json"
 	"fmt"
 	"os"
+	"os/exec"
 
-	"github.com/TheDevtop/rootctl/vkern"
 	"golang.org/x/sys/unix"
 )
 
+type entry struct {
+	path    string
+	command string
+	args    []string
+}
+
 const (
-	default_command = "/usr/bin/login"
-	default_root    = "/"
+	EC_ERR    = 1
+	EC_DEF    = 0
+	CONF_FILE = "/etc/rootctl.conf"
+	ROOT_PATH = "/"
 )
 
-// Change root and directory
+// Chroot and chdir
 func switchRoot(path string) error {
 	var err error
 
 	if err = unix.Chroot(path); err != nil {
 		return err
 	}
-	if err = unix.Chdir(default_root); err != nil {
+	if err = unix.Chdir(ROOT_PATH); err != nil {
 		return err
 	}
 	return nil
 }
 
-// Print usage
-func usage() {
-	fmt.Println("rootctl -r PATH [-c CMD]")
-	flag.PrintDefaults()
-}
-
 func main() {
 	var (
-		err      error
-		rootFlag = flag.String("r", "", "Specify path to root")
-		cmdFlag  = flag.String("c", default_command, "Specify command to execute")
+		err       error
+		name      string
+		buf       []byte
+		ok        bool
+		cmd       *exec.Cmd
+		rootEntry = new(entry)
+		confMap   = make(map[string]entry, 2)
 	)
 
-	flag.Usage = usage
-	flag.Parse()
+	if len(os.Args) != 2 {
+		fmt.Fprintln(os.Stderr, "usage: rootctl [name]")
+		os.Exit(EC_ERR)
+	}
+	name = os.Args[1]
 
-	// Switch root, or crash
-	if err = switchRoot(*rootFlag); err != nil {
+	// Read config file
+	if buf, err = os.ReadFile(CONF_FILE); err != nil {
 		fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
+		os.Exit(EC_ERR)
 	}
 
-	// Allocate and fill kconf
-	kconf := new(vkern.KernConf)
-	kconf.CmdStr = *cmdFlag
+	// Unmarshal to map with configuration entries
+	if err = json.Unmarshal(buf, &confMap); err != nil {
+		fmt.Fprintln(os.Stderr, "Error: Can't parse file contents!")
+		os.Exit(EC_ERR)
+	}
 
-	vkern.Main(kconf)
-	os.Exit(0)
+	// Check if specified entry is in map
+	if *rootEntry, ok = confMap[name]; !ok {
+		fmt.Fprintf(os.Stderr, "Error: Entry %s could not be resolved!", name)
+		os.Exit(EC_ERR)
+	}
+
+	if err = switchRoot(rootEntry.path); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(EC_ERR)
+	}
+
+	// Create new process and clean environtment
+	cmd = exec.Command(rootEntry.command, rootEntry.args...)
+	cmd.Env = nil
+	cmd.Run()
+	os.Exit(EC_DEF)
 }
