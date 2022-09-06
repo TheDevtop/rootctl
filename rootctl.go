@@ -2,7 +2,7 @@ package main
 
 /*
 	Prog: Launch chroot environments
-	Vers: 1.0
+	Vers: 1.1
 	Auth: Thijs Haker
 */
 
@@ -33,7 +33,7 @@ const (
 func uname() string {
 	var buf = new(unix.Utsname)
 	unix.Uname(buf)
-	return string((*buf).Version[:]) + string((*buf).Machine[:])
+	return fmt.Sprintf("%s %s %s", string((*buf).Sysname[:]), string(((*buf).Release[:])), string((*buf).Machine[:]))
 }
 
 // Chroot and chdir
